@@ -3,6 +3,8 @@ import discord.utils
 import discord
 import CoinInfo
 import locale
+import Warnings
+import Info
 
 class UpdatePriceUSD(commands.Cog):
     def __init__(self,bot):
@@ -23,6 +25,28 @@ class UpdatePriceUSD(commands.Cog):
         except:
             print('Error getting price data')
 
+    @tasks.loop(seconds=30,reconnect=True)
+    async def unmute_users(self):
+        await self.bot.wait_until_ready()
+
+        db = Warnings.DataBaseManagement()
+        to_unmute = db.get_to_unmute()
+        info = Info.ServerInformation("Data Files/server_info.json")
+
+        guild = self.bot.get_guild(info.server_info["guild_id"])
+
+        muted_role =  guild.get_role(info.server_info["mute_id"])
+
+
+        for i,row in to_unmute.iterrows():
+            user_id = row['user_id']
+
+            member = await guild.fetch_member(user_id)
+            print(str(user_id)+" Unmuted")
+            await member.remove_roles(muted_role)
+
+
+        db.delete_muted_users()
 
 
 class UpdateGasPrice(commands.Cog):

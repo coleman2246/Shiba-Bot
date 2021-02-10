@@ -60,4 +60,13 @@ def get_eth_gas():
   p = r.get(URL)
     
   return p.json()
+
+def get_holders():
+  api_url = "https://api.ethplorer.io/getTokenInfo/0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce?apiKey=freekey"
+  r = requests.Session()
+  p = r.get(api_url)
+    
+  return p.json()["holdersCount"]
+
+
   

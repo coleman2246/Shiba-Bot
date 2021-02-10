@@ -20,8 +20,9 @@ class PriceUpdateBotUSD(BotAuth):
 
         self.bot.add_cog(BotCommands.UpdatePriceUSD(self.bot))
         self.bot.get_cog("UpdatePriceUSD").update_username.start()
+        self.bot.get_cog("UpdatePriceUSD").unmute_users.start()
 
-
+        
         self.key = self.info.server_info["usd_bot_api_key"]
         
 class HourVolumeUpdate(BotAuth):
