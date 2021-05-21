@@ -16,11 +16,15 @@ class CustomBot(commands.Cog):
 
     async def update_username(self,new_username):
         await self.bot.wait_until_ready()
+        print(len(self.bot.guilds))
+
         for guilds in self.bot.guilds:
-            member = guilds.get_member(user_id=self.bot.user.id)
-            print(member," - ",len(self.bot.guilds))
-            await member.edit(nick= new_username)
-    
+            try:
+                member = guilds.get_member(user_id=self.bot.user.id)
+                #print(guilds.name)
+                await member.edit(nick= new_username)
+            except:
+                print("Failsed to Update Username")
     def get_json(self,enpoint,request_type = "get",params = None):
         r = requests.Session()
         if(request_type == "get"):
@@ -38,9 +42,11 @@ class UpdateShibPrice(CustomBot):
     @tasks.loop(seconds=30,reconnect=True)
     async def do_task(self):
         try:
-            await self.update_username(str.format('{0:.10f}',self.coin.get_shib_price()))
+            price = self.coin.get_shib_price()
+            print(str.format('{0:.10f}',price))
+            await self.update_username(str.format('{0:.10f}',price))
         except:
-            print("Unable to Fetch Shib Price")
+            print("Unable to Fetch Username Shib Price")
 
     '''
     @tasks.loop(seconds=30,reconnect=True)
