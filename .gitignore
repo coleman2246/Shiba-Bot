@@ -1,6 +1,6 @@
 Data Files/server_info.json
 Data Files/database.sqlite3
-
+Data Files/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

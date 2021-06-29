@@ -8,11 +8,15 @@ import pandas as pd
 from discord.utils import get
 import requests
 import CoinInfo
+import json
+import aiofiles
 
 class ChatCommands(commands.Cog):
     def __init__(self,bot):
         self.bot = bot
         self.info = Info.ServerInformation("Data Files/server_info.json")
+        self.counter = 0
+
 
     @commands.command()
     async def chartex(self,ctx):
@@ -259,4 +263,82 @@ class ChatCommands(commands.Cog):
         message = "<:crabbe:834946109809098753>"
         await ctx.send(message)
 
-    
+    '''
+    @commands.command()
+    async def assign(self,ctx,channel):
+        channels = ctx.guild.text_channels
+
+
+        channel_data = None
+
+        async with aiofiles.open('data.json', mode='r') as f:
+            contents = await f.read()
+
+        channel_data = json.loads(contents)
+
+        channel = channel[2:-1]
+        print(channel)
+
+        channel = await self.bot.fetch_channel(channel)
+
+        channel_data[str(channel.id)].append(ctx.author.id)
+
+        message = ""
+        t = {}
+        for curr_channel in channel_data.keys():
+            if(len(channel_data[curr_channel]) != 0):
+                
+                chan_obj = await self.bot.fetch_channel(curr_channel)
+                message += "<#"+str(chan_obj.id)+">" + "\n  "
+                
+                for member in channel_data[curr_channel]:
+                    member_name = await ctx.guild.fetch_member(member)
+                    message += "**"+member_name.name+"**"
+                message += "\n"
+        
+        await ctx.channel.send(message)
+
+
+
+        #message = makeEmbed(name=name, values=actualDict)
+        #await ctx.channel.send(message)
+        '''
+
+
+
+
+
+    @commands.Cog.listener()
+    async def on_message(self, ctx):
+        await self.bot.wait_until_ready()
+        
+        if(int(ctx.author.id) != 842892223162089503 and ctx.channel.id == self.info.server_info["buy_help_id"]):
+            
+            if(self.counter >= 9):        
+                name = "Scam Warning"
+                actualDict = {"Warning" : self.info.server_info["scam_message"]}
+                message = makeEmbed(name=name, values=actualDict)
+                await ctx.channel.send("",embed=message)
+                
+                self.counter = 0
+            else:
+                self.counter += 1
+
+
+def makeEmbed(*, name=None, icon=None, colour=0xEB4034, values={}):
+    '''Creates an embed messasge with specified inputs'''
+
+    # Create an embed object with the specified colour
+    embedObj = discord.Embed(colour=colour)
+
+    # Set the author and URL
+    embedObj.set_author(name=name)
+
+    # Create all of the fields
+    for i in values:
+        if values[i] == '':
+            values[i] = 'None'
+        embedObj.add_field(name=i, value='{}'.format(values[i]))
+
+    # Return to user
+    return embedObj

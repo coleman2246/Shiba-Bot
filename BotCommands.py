@@ -39,7 +39,7 @@ class UpdateShibPrice(CustomBot):
         super().__init__(bot)
         self.coin = CoinInfo.TheGraph()
 
-    @tasks.loop(seconds=30,reconnect=True)
+    @tasks.loop(seconds=60,reconnect=True)
     async def do_task(self):
         try:
             price = self.coin.get_shib_price()
@@ -77,7 +77,7 @@ class UpdateGasPrice(CustomBot):
         super().__init__(bot)
 
 
-    @tasks.loop(seconds=30,reconnect=True)
+    @tasks.loop(seconds=60,reconnect=True)
     async def do_task(self):
         await self.bot.wait_until_ready()
         
@@ -123,7 +123,7 @@ class UpdateLeashPriceUSD(CustomBot):
     def __init__(self,bot):
         super().__init__(bot)
         self.coin = CoinInfo.TheGraph()
-    @tasks.loop(seconds=30,reconnect=True)
+    @tasks.loop(seconds=60,reconnect=True)
     async def do_task(self):
         await self.bot.wait_until_ready()
 
