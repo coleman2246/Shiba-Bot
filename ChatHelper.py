@@ -312,7 +312,7 @@ class ChatCommands(commands.Cog):
     async def on_message(self, ctx):
         await self.bot.wait_until_ready()
         
-        if(int(ctx.author.id) != 842892223162089503 and ctx.channel.id == self.info.server_info["buy_help_id"]):
+        if(ctx.channel.id == self.info.server_info["buy_help_id"] and int(ctx.author.id) != 842892223162089503):
             
             if(self.counter >= 9):        
                 name = "Scam Warning"
