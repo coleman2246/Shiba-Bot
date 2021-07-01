@@ -14,7 +14,10 @@ class BotAuth:
 class ShibInformer(BotAuth):
     def __init__(self):
         super().__init__()
+        self.bot = commands.Bot(command_prefix='$',intents=discord.Intents().all())
+        
         print("Starte shib informer")
+
         self.bot.add_cog(ChatHelper.ChatCommands(self.bot))
         self.key = self.info.server_info["shib_informer"]
         

@@ -263,50 +263,107 @@ class ChatCommands(commands.Cog):
         message = "<:crabbe:834946109809098753>"
         await ctx.send(message)
 
-    '''
     @commands.command()
-    async def assign(self,ctx,channel):
-        channels = ctx.guild.text_channels
-
-
-        channel_data = None
-
-        async with aiofiles.open('data.json', mode='r') as f:
+    async def board(self,ctx):
+        if(not self.is_staff_member(ctx.author)):
+            await ctx.channel.send("Only staff members can use this command.")
+            return 
+        
+        async with aiofiles.open('Data Files/data.json', mode='r') as f:
             contents = await f.read()
-
         channel_data = json.loads(contents)
+        await self.send_board_embed(ctx,channel_data)
 
-        channel = channel[2:-1]
-        print(channel)
+    
+    async def send_board_embed(self,ctx,channel_data):
+        embed_dict = {}
+        embed_dict["title"] = "Shib Staff Board"
+        embed_dict["fields"] = []
 
-        channel = await self.bot.fetch_channel(channel)
-
-        channel_data[str(channel.id)].append(ctx.author.id)
-
-        message = ""
-        t = {}
         for curr_channel in channel_data.keys():
             if(len(channel_data[curr_channel]) != 0):
                 
                 chan_obj = await self.bot.fetch_channel(curr_channel)
-                message += "<#"+str(chan_obj.id)+">" + "\n  "
-                
+                temp = {}
+                temp["name"] = "**"+chan_obj.name+"**"
+
+                temp["value"] = ""
                 for member in channel_data[curr_channel]:
                     member_name = await ctx.guild.fetch_member(member)
-                    message += "**"+member_name.name+"**"
-                message += "\n"
+                    temp["value"] += " **"+member_name.mention+"** "
+                embed_dict["fields"].append(temp)
         
-        await ctx.channel.send(message)
+
+        await ctx.channel.send("",embed=discord.Embed.from_dict(embed_dict))
+
+    async def assign_user(self,ctx,channel,user):
+        
+        async with aiofiles.open('Data Files/data.json', mode='r') as f:
+            contents = await f.read()
+        channel_data = json.loads(contents)
+
+        try:
+            channel = channel[2:-1]
+
+            channel = await self.bot.fetch_channel(channel)
+
+            if(int(user.id) in channel_data[str(channel.id)] ):
+                channel_data[str(channel.id)].remove(int(user.id))
+                await ctx.channel.send("User Removed from Channel")
+
+            else:
+                await ctx.channel.send("User Added to Channel")
+                channel_data[str(channel.id)].append(user.id)
+        except:
+            await ctx.channel.send("Please Enter Valid Channel")
+            return 
 
 
 
-        #message = makeEmbed(name=name, values=actualDict)
-        #await ctx.channel.send(message)
-        '''
+        await self.send_board_embed(ctx,channel_data)
+
+        async with aiofiles.open('Data Files/data.json', mode='w') as f:
+            await f.write(json.dumps(channel_data,indent=4))
 
 
 
 
+    @commands.command()
+    async def assign(self,ctx,channel,author=None):
+        await self.bot.wait_until_ready()
+
+        if(not self.is_staff_member(ctx.author)):
+            await ctx.channel.send("Only staff members can use this command.")
+            return 
+        if(author == None):
+            await self.assign_user(ctx,channel,ctx.author)
+        else:
+            try:
+                auth_string = author[3:-1]
+                user_obj = await ctx.guild.fetch_member(auth_string)
+                print(user_obj)
+            except:
+                await ctx.channel.send("Invalid User Passed")
+                return 
+
+            await self.assign_user(ctx,channel,user_obj)
+
+
+
+    @commands.command()
+    async def members(self,ctx):
+        shib_server = self.bot.get_guild(740287152843128944)
+        await ctx.channel.send("There is Currently **{}** members in {}".format(shib_server.member_count,shib_server.name))
+
+
+    @commands.Cog.listener()
+    async def on_member_join(self,member):
+        await self.bot.wait_until_ready()
+
+        with open("Data Files/join_message") as f:
+            data = f.read()
+
+        await member.send(data)
 
     @commands.Cog.listener()
     async def on_message(self, ctx):
@@ -323,6 +380,16 @@ class ChatCommands(commands.Cog):
                 self.counter = 0
             else:
                 self.counter += 1
+
+    
+    def is_staff_member(self,user):
+        user_roles = user.roles
+
+        for curr_user_role in user_roles:
+            if(int(curr_user_role.id) in self.info.server_info["staff_roles"]):
+                return True
+
+        return False
 
 
 def makeEmbed(*, name=None, icon=None, colour=0xEB4034, values={}):

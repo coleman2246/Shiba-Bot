@@ -16,15 +16,16 @@ class CustomBot(commands.Cog):
 
     async def update_username(self,new_username):
         await self.bot.wait_until_ready()
-        print(len(self.bot.guilds))
-
+        
         for guilds in self.bot.guilds:
             try:
+
                 member = guilds.get_member(user_id=self.bot.user.id)
                 #print(guilds.name)
                 await member.edit(nick= new_username)
             except:
-                print("Failsed to Update Username")
+                continue
+
     def get_json(self,enpoint,request_type = "get",params = None):
         r = requests.Session()
         if(request_type == "get"):
