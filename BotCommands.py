@@ -49,6 +49,21 @@ class UpdateShibPrice(CustomBot):
         except:
             print("Unable to Fetch Username Shib Price")
 
+
+class UpdateBonePrice(CustomBot):
+    def __init__(self,bot):
+        super().__init__(bot)
+        self.coin = CoinInfo.TheGraph()
+
+    @tasks.loop(seconds=60,reconnect=True)
+    async def do_task(self):
+        try:
+            price = self.coin.get_bone_price()
+            print(str.format('{0:.10f}',price))
+            await self.update_username(str.format('{0:.3f}',price))
+        except:
+            print("Unable to Fetch Username Bone Price")
+
     '''
     @tasks.loop(seconds=30,reconnect=True)
     async def unmute_users(self):

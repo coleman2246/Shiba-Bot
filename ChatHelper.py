@@ -10,12 +10,18 @@ import requests
 import CoinInfo
 import json
 import aiofiles
+import re
+import textdistance
 
 class ChatCommands(commands.Cog):
     def __init__(self,bot):
         self.bot = bot
         self.info = Info.ServerInformation("Data Files/server_info.json")
-        self.counter = 0
+        
+        self.counter = {}
+
+        for channel in self.info.server_info["scam_channels"]:
+            self.counter[channel] = 0
 
 
     @commands.command()
@@ -363,23 +369,44 @@ class ChatCommands(commands.Cog):
         with open("Data Files/join_message") as f:
             data = f.read()
 
+        print(member.name)
         await member.send(data)
+        admins = ["LC","CAT","Trophias"]
+        for admin in admins:
+            regex = '(?i)^{}*'.format(admin)
+            regexp = re.compile(regex)
+            if regexp.search(member.name):
+
+                await member.send("You have been kicked due to your name being too similar to a staff memebers")
+                await member.kick(reason="You have been kicked due to your name being too similar to a staff memebers")
+                break
+
+        non_regex = "Bioluminescent Government Agents".upper()
+        if(textdistance.levenshtein(non_regex,member.name.upper()) < 4):
+            await member.send("You have been kicked due to your name being too similar to a staff memebers")
+            await member.kick(reason="You have been kicked due to your name being too similar to a staff memebers")
+        
 
     @commands.Cog.listener()
     async def on_message(self, ctx):
         await self.bot.wait_until_ready()
         
-        if(ctx.channel.id == self.info.server_info["buy_help_id"] and int(ctx.author.id) != 842892223162089503):
+        if(ctx.channel.id in self.info.server_info["scam_channels"] and int(ctx.author.id) != 842892223162089503):
             
-            if(self.counter >= 9):        
+            if(self.counter[ctx.channel.id] >=  self.info.server_info["scam_channels_counts"][str(ctx.channel.id)] ):    
+                #print(self.info.server_info["scam_channels_counts"][str(ctx.channel.id)])    
+                
                 name = "Scam Warning"
+                
+                admin_message = "Click on the mentions in the message to get in contact with admin.\n <@"
                 actualDict = {"Warning" : self.info.server_info["scam_message"]}
                 message = makeEmbed(name=name, values=actualDict)
+                print(ctx.channel.name)
                 await ctx.channel.send("",embed=message)
                 
-                self.counter = 0
+                self.counter[ctx.channel.id] = 0
             else:
-                self.counter += 1
+                self.counter[ctx.channel.id] += 1
 
     
     def is_staff_member(self,user):

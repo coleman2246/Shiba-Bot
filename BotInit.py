@@ -113,3 +113,15 @@ class ShibMarketCapUpdates(BotAuth):
         
         self.bot.help_command = None
 
+
+class UpdateBonePrice(BotAuth):
+    def __init__(self):
+        super().__init__()
+
+        print("Started UpdateBonePrice price Updates")
+        self.bot.add_cog(BotCommands.UpdateBonePrice(self.bot))
+        self.bot.get_cog("UpdateBonePrice").do_task.start()
+    
+        self.key = self.info.server_info["bone_pricer_key"]
+        
+        self.bot.help_command = None

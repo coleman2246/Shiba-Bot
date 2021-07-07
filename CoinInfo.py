@@ -23,9 +23,9 @@ class CoinQuery:
 
 class TheGraph(CoinQuery):
 
-  def __init__(self):
+  def __init__(self ):
     self.URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2"
-
+    self.SHIB_GRAPH_URL = "https://api.thegraph.com/subgraphs/name/shibaswaparmy/exchange"
   def get_eth_price(self):
     
 
@@ -64,7 +64,16 @@ class TheGraph(CoinQuery):
 
     return circ_supply * self.get_shib_price()
 
-  
+  def get_bone_price(self):
+    params = {
+      "query" : "{tokens(where:{id:\"0x9813037ee2218799597d83d4a5b6f3b6778218d9\"},first:1000,orderBy:id){derivedETH,id}}"
+    }
+    bone_price_eth = float(self.get_json(self.SHIB_GRAPH_URL,request_type="post",params=params)["data"]["tokens"][0]['derivedETH'])
+    eth_price = self.get_eth_price()
+
+    return bone_price_eth * eth_price
+    
+
   def get_leash_price(self):
     params = {
         "query" : "{ pair(id: \"0x874376be8231dad99aabf9ef0767b3cc054c60ee\"){   \n token1Price  }}"
