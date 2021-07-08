@@ -10,8 +10,10 @@ import requests
 import CoinInfo
 import json
 import aiofiles
+import asyncio
 import re
 import textdistance
+import numpy as np
 
 class ChatCommands(commands.Cog):
     def __init__(self,bot):
@@ -19,10 +21,10 @@ class ChatCommands(commands.Cog):
         self.info = Info.ServerInformation("Data Files/server_info.json")
         
         self.counter = {}
-
+        self.counter_locks = {}
         for channel in self.info.server_info["scam_channels"]:
             self.counter[channel] = 0
-
+            self.counter_locks[channel] = asyncio.Lock()
 
     @commands.command()
     async def chartex(self,ctx):
@@ -226,6 +228,15 @@ class ChatCommands(commands.Cog):
 
 
     @commands.command()
+    async def bone_price_bot(self,ctx):
+        await self.bot.wait_until_ready()
+
+        message = "Bone Price Tracker discord link - " + self.info.server_info["bone_price_link"]
+        await ctx.send(message)
+
+
+
+    @commands.command()
     async def leash_holder_bot(self,ctx):
         await self.bot.wait_until_ready()
 
@@ -331,9 +342,46 @@ class ChatCommands(commands.Cog):
         async with aiofiles.open('Data Files/data.json', mode='w') as f:
             await f.write(json.dumps(channel_data,indent=4))
 
+    '''
 
+    @commands.command()
+    async def imposter(self,ctx):
+        members = ctx.guild.members
+        
+        staff_members = []
 
+        for role_id in self.info.server_info["staff_roles"]:
+            curr_role = ctx.guild.get_role(role_id)
 
+            staff_members += curr_role.members
+
+        staff_names = []
+        for i in staff_members:
+            if i.nick == None:
+                staff_names.append(i.name)
+            else:
+                staff_names.append(i.nick)
+        
+        similar_names = []
+        for memeber_depth,member in enumerate(members):
+
+            if member.nick == None:
+                effective_name = member.name
+            else:
+                effective_name = member.nick
+
+            
+            for i,staff in enumerate(staff_members):
+                if staff.id != member.id:
+                    distance = textdistance.hamming(staff_names[i].upper(),effective_name.upper())
+                    if  distance < 3:
+                        print(member.name,staff_names[i],distance )
+                        similar_names.append(member,staff)
+
+            
+            #print(memeber_depth)
+        print(similar_names)
+    '''
     @commands.command()
     async def assign(self,ctx,channel,author=None):
         await self.bot.wait_until_ready()
@@ -346,10 +394,12 @@ class ChatCommands(commands.Cog):
         else:
             try:
                 auth_string = author[3:-1]
-                user_obj = await ctx.guild.fetch_member(auth_string)
+                print(auth_string)
+                user_obj = await ctx.guild.fetch_member(int(auth_string))
                 print(user_obj)
             except:
-                await ctx.channel.send("Invalid User Passed")
+                await ctx.channel.send("Invalid User Passed. Example usage is $assign #channel @user")
+                print("Invalid User passed.")
                 return 
 
             await self.assign_user(ctx,channel,user_obj)
@@ -369,11 +419,9 @@ class ChatCommands(commands.Cog):
         with open("Data Files/join_message") as f:
             data = f.read()
 
-        print(member.name)
-        await member.send(data)
         admins = ["LC","CAT","Trophias"]
         for admin in admins:
-            regex = '(?i)^{}*'.format(admin)
+            regex = '(?i)^{}'.format(admin)
             regexp = re.compile(regex)
             if regexp.search(member.name):
 
@@ -393,7 +441,10 @@ class ChatCommands(commands.Cog):
         
         if(ctx.channel.id in self.info.server_info["scam_channels"] and int(ctx.author.id) != 842892223162089503):
             
-            if(self.counter[ctx.channel.id] >=  self.info.server_info["scam_channels_counts"][str(ctx.channel.id)] ):    
+            await self.counter_locks[ctx.channel.id].acquire()
+            count = self.counter[ctx.channel.id]
+
+            if( count >=  self.info.server_info["scam_channels_counts"][str(ctx.channel.id)] ):    
                 #print(self.info.server_info["scam_channels_counts"][str(ctx.channel.id)])    
                 
                 name = "Scam Warning"
@@ -402,11 +453,14 @@ class ChatCommands(commands.Cog):
                 actualDict = {"Warning" : self.info.server_info["scam_message"]}
                 message = makeEmbed(name=name, values=actualDict)
                 print(ctx.channel.name)
+                
                 await ctx.channel.send("",embed=message)
                 
                 self.counter[ctx.channel.id] = 0
             else:
                 self.counter[ctx.channel.id] += 1
+        
+            self.counter_locks[ctx.channel.id].release()
 
     
     def is_staff_member(self,user):
