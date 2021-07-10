@@ -9,11 +9,13 @@ from discord.utils import get
 import requests
 import CoinInfo
 import json
-import aiofiles
 import asyncio
 import re
 import textdistance
 import numpy as np
+from matplotlib import pyplot as plt
+from skimage import io
+import cv2
 
 class ChatCommands(commands.Cog):
     def __init__(self,bot):
@@ -22,9 +24,12 @@ class ChatCommands(commands.Cog):
         
         self.counter = {}
         self.counter_locks = {}
+        
         for channel in self.info.server_info["scam_channels"]:
             self.counter[channel] = 0
             self.counter_locks[channel] = asyncio.Lock()
+
+        self.board_lock = asyncio.Lock()
 
     @commands.command()
     async def chartex(self,ctx):
@@ -285,12 +290,17 @@ class ChatCommands(commands.Cog):
         if(not self.is_staff_member(ctx.author)):
             await ctx.channel.send("Only staff members can use this command.")
             return 
+    
+        await self.board_lock.acquire()
         
-        async with aiofiles.open('Data Files/data.json', mode='r') as f:
-            contents = await f.read()
-        channel_data = json.loads(contents)
+        with open('Data Files/data.json', 'r') as f:
+            channel_data = json.load(f)
+        
+        self.board_lock.release()
+        
         await self.send_board_embed(ctx,channel_data)
 
+        
     
     async def send_board_embed(self,ctx,channel_data):
         embed_dict = {}
@@ -314,11 +324,12 @@ class ChatCommands(commands.Cog):
         await ctx.channel.send("",embed=discord.Embed.from_dict(embed_dict))
 
     async def assign_user(self,ctx,channel,user):
+        await self.board_lock.acquire()
+            
         
-        async with aiofiles.open('Data Files/data.json', mode='r') as f:
-            contents = await f.read()
-        channel_data = json.loads(contents)
-
+        with open('Data Files/data.json', 'r') as f:
+            channel_data = json.load(f)
+        
         try:
             channel = channel[2:-1]
 
@@ -333,17 +344,22 @@ class ChatCommands(commands.Cog):
                 channel_data[str(channel.id)].append(user.id)
         except:
             await ctx.channel.send("Please Enter Valid Channel")
-            return 
+            self.board_lock.release()
+ 
+            return
 
-
+ 
 
         await self.send_board_embed(ctx,channel_data)
 
-        async with aiofiles.open('Data Files/data.json', mode='w') as f:
-            await f.write(json.dumps(channel_data,indent=4))
+        with open('Data Files/data.json', 'w') as f:
+            json.dump(channel_data,f,indent=4)
 
+
+        self.board_lock.release()
+ 
+    
     '''
-
     @commands.command()
     async def imposter(self,ctx):
         members = ctx.guild.members
@@ -362,6 +378,7 @@ class ChatCommands(commands.Cog):
             else:
                 staff_names.append(i.nick)
         
+        print("Started loop")
         similar_names = []
         for memeber_depth,member in enumerate(members):
 
@@ -370,16 +387,31 @@ class ChatCommands(commands.Cog):
             else:
                 effective_name = member.nick
 
-            
             for i,staff in enumerate(staff_members):
+                
                 if staff.id != member.id:
                     distance = textdistance.hamming(staff_names[i].upper(),effective_name.upper())
                     if  distance < 3:
                         print(member.name,staff_names[i],distance )
-                        similar_names.append(member,staff)
-
-            
+                        print(str(member.avatar_url_as(static_format="jpg",size=128)))
+                        staff_pic = await member.avatar_url_as(static_format="jpg",size=128).read()
+                        staff_pic = cv2.imdecode(np.frombuffer(staff_pic,np.uint8),-1)
+                        plt.imshow(staff_pic)
+                        plt.show()
+                        break                
+                        similar_names.append([member,staff])
+        
+        print("Done loop")
+        staff_pics = {}
+        memeber_pics = {}
+        
+        for curr_match in similar_names:
+            staff_pic = io.imread(curr_match[0].avatar_url_as(static_format="jpg",size=128))
+            plt.imshow(staff_pic)
+            plt.show()
+            break
             #print(memeber_depth)
+        
         print(similar_names)
     '''
     @commands.command()
@@ -391,12 +423,12 @@ class ChatCommands(commands.Cog):
             return 
         if(author == None):
             await self.assign_user(ctx,channel,ctx.author)
+        
         else:
             try:
                 auth_string = author[3:-1]
                 print(auth_string)
                 user_obj = await ctx.guild.fetch_member(int(auth_string))
-                print(user_obj)
             except:
                 await ctx.channel.send("Invalid User Passed. Example usage is $assign #channel @user")
                 print("Invalid User passed.")
