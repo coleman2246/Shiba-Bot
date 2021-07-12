@@ -83,3 +83,11 @@ class TheGraph(CoinQuery):
     eth_price = self.get_eth_price()
 
     return eth_price*leash_price_eth
+
+  def get_swap_tvl(self):
+    params = {"operationName":"dayDatasQuery","variables":{"first":1},"query":"query dayDatasQuery($first: Int! = 1, $date: Int! = 0) {\n  dayDatas(first: $first, orderBy: date, orderDirection: desc) {\n    id\n    date\n    volumeETH\n    volumeUSD\n    untrackedVolume\n    liquidityETH\n    liquidityUSD\n    txCount\n    __typename\n  }\n}\n"}
+    
+    tvl = int(float(self.get_json(self.SHIB_GRAPH_URL,request_type="post",params=params)["data"]["dayDatas"][0]["liquidityUSD"]))
+
+    return tvl
+

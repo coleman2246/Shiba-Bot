@@ -6,7 +6,8 @@ threads = []
 bot_instances = [BotInit.ShibHolderUpdates(),BotInit.ShibPriceUpdates(),
                 BotInit.GasPriceUpdate(),BotInit.LeashPriceUpdates(),
                 BotInit.LeashHolderUpdates(),BotInit.HourVolumeUpdate(),
-                BotInit.ShibMarketCapUpdates(),BotInit.ShibInformer(), BotInit.UpdateBonePrice()]
+                BotInit.ShibMarketCapUpdates(),BotInit.ShibInformer(), BotInit.UpdateBonePrice(),
+                BotInit.SwapTotalValueLocked()]
 
 loop = asyncio.get_event_loop()
 

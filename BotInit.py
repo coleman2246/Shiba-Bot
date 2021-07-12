@@ -128,3 +128,18 @@ class UpdateBonePrice(BotAuth):
         self.key = self.info.server_info["bone_pricer_key"]
         
         self.bot.help_command = None
+
+
+
+class SwapTotalValueLocked(BotAuth):
+    def __init__(self):
+        super().__init__()
+
+        print("Started Total Value Locked Updates")
+        self.bot.add_cog(BotCommands.UpdateTotalValueLocked(self.bot))
+        self.bot.get_cog("UpdateTotalValueLocked").do_task.start()
+    
+        self.key = self.info.server_info["tvl_tracker"]
+        
+        self.bot.help_command = None
+

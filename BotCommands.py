@@ -64,30 +64,7 @@ class UpdateBonePrice(CustomBot):
         except:
             print("Unable to Fetch Username Bone Price")
 
-    '''
-    @tasks.loop(seconds=30,reconnect=True)
-    async def unmute_users(self):
-        await self.bot.wait_until_ready()
 
-        db = Warnings.DataBaseManagement()
-        to_unmute = db.get_to_unmute()
-        info = Info.ServerInformation("Data Files/server_info.json")
-
-        guild = self.bot.get_guild(info.server_info["guild_id"])
-
-        muted_role =  guild.get_role(info.server_info["mute_id"])
-
-
-        for i,row in to_unmute.iterrows():
-            user_id = row['user_id']
-
-            member = await guild.fetch_member(user_id)
-            print(str(user_id)+" Unmuted")
-            await member.remove_roles(muted_role)
-
-
-        db.delete_muted_users()
-    '''
 class UpdateGasPrice(CustomBot):
     def __init__(self,bot):
         super().__init__(bot)
@@ -174,5 +151,21 @@ class UpdateShibMarketCap(CustomBot):
         #print(self.coin.get_shib_marketcap())
         try:
             await self.update_username(f"{int(self.coin.get_shib_marketcap()):,}")
+        except:
+            print('Error getting leash-holder data')        
+
+
+
+class UpdateTotalValueLocked(CustomBot):
+    def __init__(self,bot):
+        super().__init__(bot)
+        self.coin = CoinInfo.TheGraph()
+
+    @tasks.loop(seconds=60,reconnect=True)
+    async def do_task(self):
+        await self.bot.wait_until_ready()
+        print(self.coin.get_swap_tvl())
+        try:
+            await self.update_username(f"{int(self.coin.get_swap_tvl()):,}")
         except:
             print('Error getting leash-holder data')        
