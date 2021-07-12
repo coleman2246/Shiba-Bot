@@ -14,8 +14,17 @@ import re
 import textdistance
 import numpy as np
 from matplotlib import pyplot as plt
-from skimage import io
-import cv2
+import cv2 as cv
+import urllib
+from skimage.metrics import structural_similarity as ssim
+from scipy.spatial.distance import euclidean
+import requests
+import time
+import unidecode
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
+import io
 
 class ChatCommands(commands.Cog):
     def __init__(self,bot):
@@ -30,6 +39,66 @@ class ChatCommands(commands.Cog):
             self.counter_locks[channel] = asyncio.Lock()
 
         self.board_lock = asyncio.Lock()
+        
+        client = self.info.server_info["twitch_client"]
+        sec = self.info.server_info["twitch_secret"]
+        
+        
+        response = requests.post(f"https://id.twitch.tv/oauth2/token"
+                                        f"?client_id={client}"
+                                        f"&client_secret={sec}"
+                                        "&grant_type=client_credentials")
+        
+        if response.status_code == 200:
+            self.bearer_token = response.json()['access_token']
+
+            self.headers = { "client-id": self.info.server_info["twitch_client"],
+                        "Authorization": "Bearer "+self.bearer_token
+            }
+
+        self.notify_channels = self.info.server_info["twtich_watchlist"]
+        self.notify_times = {}
+        self.notify_times_lock = {}
+
+
+        for i in self.notify_channels:
+            self.notify_times[i] = {}
+            self.notify_times[i]["time-last-online"] = np.inf
+            self.notify_times[i]["already-notified"] = False
+            #self.notify_times_lock[i] =  asyncio.Lock()
+
+
+    @tasks.loop(seconds=60,reconnect=True)
+    async def notify_twitch_live(self):
+        await self.bot.wait_until_ready()
+        notify_channel = await self.bot.fetch_channel(844468484036493352)
+        for i in self.notify_channels:
+            live = self.is_live(i)
+
+            if live:
+                self.notify_times[i]["time-last-online"] = int(time.time())
+                if not self.notify_times[i]["already-notified"]:
+                    await notify_channel.send("{} is streaming on https://twitch.tv/{}".format(i,i))
+                    self.notify_times[i]["already-notified"] = True
+
+            else:  
+                if int(time.time()) - self.notify_times[i]["time-last-online"] > 600:
+                    self.notify_times[i]["already-notified"] = False
+
+
+        
+
+    def is_live(self,channel):
+        if self.bearer_token == None:
+            raise ValueError("Bearer Token has not been set")
+        end_point = "https://api.twitch.tv/helix/search/channels?query={}".format(channel)
+
+        r = requests.get(end_point, headers=self.headers)
+
+        if r.status_code == 200:
+            return r.json()["data"][0]["is_live"]
+        else:
+            raise ValueError("Bearer token was not authenicated by twitch")
 
     @commands.command()
     async def chartex(self,ctx):
@@ -114,77 +183,7 @@ class ChatCommands(commands.Cog):
             message = "Cannot get prices from https://ethgasstation.info/"
 
         await ctx.send(message)
-    '''
-    @commands.command()
-    async def warn(self,ctx,user,*,reason):
-        await self.bot.wait_until_ready()
 
-        author = ctx.message.author
-
-        guild = self.bot.get_guild(self.info.server_info["guild_id"])
-
-        admin_role = guild.get_role(self.info.server_info["admin_id"])
-        mod_role = guild.get_role(self.info.server_info["moderator_id"])
-    
-
-        if admin_role in author.roles or mod_role in author.roles:
-                if user is None:
-                    await ctx.send("This Command requires a user to warn")
-                    return 
-                #<@!114939079384104969>
-                try:
-                    user_id =  int(re.findall(r'\d+',user)[0])
-
-                    user_obj = self.bot.get_user(user_id)
-                except:
-                    await ctx.send("Couldn't Find User")
-                    return 
-
-                if reason is None:
-                    await ctx.send("Please Specifiy a reason for the warning")
-                    return 
-                
-
-                db = Warnings.DataBaseManagement()
-
-                db.insert_user_warnings(user_id,reason)
-            
-                df = db.query_user_warnings(user_id)
-
-                warnings = df.shape[0]
-
-                await ctx.send(str(df[["time","reason"]].head(15)))
-
-                await ctx.send(user+ " You Have "+str(warnings)+ " warnings. For every warning you get past 2 messages you get muted for 2^warnings hours" )
-
-
-                if warnings >= 2:
-                    length = 2 ** warnings
-
-                    try:
-                        db.insert_user_muted(user_id,mute_length=length)
-                    except:
-                        await ctx.send("This User is already muted. This warn will count the next time they are warned.")
-                        return 
-
-                    await ctx.send(user+" You Have Been muted for "+str(length)+" hours")
-                    
-                    muted_role =  guild.get_role(self.info.server_info["mute_id"])
-                    
-                    try:
-                        member = await guild.fetch_member(user_id)
-                    except:
-                        await ctx.send("This user could not be retreived")
-                    
-                    try:   
-                        await member.add_roles(muted_role)
-                    except:
-                        await ctx.send("This user is already muted")
-                    
-
-        else:
-            await ctx.send("Only Admins or Mods can use this command")
-        '''
 
     def get_json(self,enpoint,request_type = "get",params = None):
         r = requests.Session()
@@ -372,48 +371,91 @@ class ChatCommands(commands.Cog):
             staff_members += curr_role.members
 
         staff_names = []
+        staff_pics = {}
+
+        print("Getting Staff Images")
+
+
+
         for i in staff_members:
             if i.nick == None:
                 staff_names.append(i.name)
             else:
                 staff_names.append(i.nick)
-        
+            
+            img = await i.avatar_url_as(static_format="jpg",size=32).read()
+            stream = io.BytesIO(img)
+
+
+            img = Image.open(stream).convert('RGB') 
+            #img.show(command='fim')
+            
+            open_cv_image = np.array(img) 
+            open_cv_image = open_cv_image[:, :, ::-1].copy() 
+            gray = cv.cvtColor(open_cv_image,cv.COLOR_BGR2GRAY)
+            
+            #kp, des = sift.detectAndCompute(gray,None)
+            staff_pics[i.id] = gray  
+
         print("Started loop")
         similar_names = []
+
+        forbiden_stats = ["admin","mod","support"]
         for memeber_depth,member in enumerate(members):
+            effective_name = unidecode.unidecode(member.name)
 
-            if member.nick == None:
-                effective_name = member.name
-            else:
-                effective_name = member.nick
 
+            #print(memeber_depth)
             for i,staff in enumerate(staff_members):
-                
+                       
                 if staff.id != member.id:
-                    distance = textdistance.hamming(staff_names[i].upper(),effective_name.upper())
-                    if  distance < 3:
-                        print(member.name,staff_names[i],distance )
-                        print(str(member.avatar_url_as(static_format="jpg",size=128)))
-                        staff_pic = await member.avatar_url_as(static_format="jpg",size=128).read()
-                        staff_pic = cv2.imdecode(np.frombuffer(staff_pic,np.uint8),-1)
-                        plt.imshow(staff_pic)
-                        plt.show()
-                        break                
-                        similar_names.append([member,staff])
+                    staff_start = staff_names[i].split()[0]
+                    
+                    if(staff_start.upper()[:3] in effective_name.upper()):
+                        
+                        distance = textdistance.levenshtein(staff_names[i].upper(),effective_name.upper())
+                        if(distance < 5):
+                            member_pic = await member.avatar_url_as(static_format="jpg",size=32).read()
+
+                            stream = io.BytesIO(member_pic)
+
+
+                            img = Image.open(stream).convert('RGB') 
+                            #img.show(command='fim')
+                            
+                            open_cv_image = np.array(img) 
+                            open_cv_image = open_cv_image[:, :, ::-1].copy() 
+                            gray = cv.cvtColor(open_cv_image,cv.COLOR_BGR2GRAY)
+                            dim = (32, 32)
+                            gray = cv.resize(gray,dim,interpolation = cv.INTER_AREA)
+
+                            s = ssim(gray,staff_pics[staff.id])
+                            #print(("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s)))
+                            if(s > .25):
+                                await ctx.channel.send("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s))
+                                break
+            #status = member.activity
+            #isinstance(status,discord.CustomActivity)
+          
+                        
+
+        print("Done Loop")
         
         print("Done loop")
-        staff_pics = {}
         memeber_pics = {}
         
         for curr_match in similar_names:
             staff_pic = io.imread(curr_match[0].avatar_url_as(static_format="jpg",size=128))
+            staff_pic = cv2.imdecode(np.frombuffer(staff_pic,np.uint8),-1)
+                        plt.imshow(staff_pic)
             plt.imshow(staff_pic)
             plt.show()
             break
             #print(memeber_depth)
-        
+      
         print(similar_names)
-    '''
+        '''
+    
     @commands.command()
     async def assign(self,ctx,channel,author=None):
         await self.bot.wait_until_ready()
@@ -451,21 +493,72 @@ class ChatCommands(commands.Cog):
         with open("Data Files/join_message") as f:
             data = f.read()
 
-        admins = ["LC","CAT","Trophias"]
-        for admin in admins:
-            regex = '(?i)^{}'.format(admin)
-            regexp = re.compile(regex)
-            if regexp.search(member.name):
+        await member.send(data)
 
-                await member.send("You have been kicked due to your name being too similar to a staff memebers")
-                await member.kick(reason="You have been kicked due to your name being too similar to a staff memebers")
-                break
+        staff_members = []
+        staff_pics = {}
+        shib_server = self.bot.get_guild(740287152843128944)
 
-        non_regex = "Bioluminescent Government Agents".upper()
-        if(textdistance.levenshtein(non_regex,member.name.upper()) < 4):
-            await member.send("You have been kicked due to your name being too similar to a staff memebers")
-            await member.kick(reason="You have been kicked due to your name being too similar to a staff memebers")
+        for role_id in self.info.server_info["staff_roles"]:
+            curr_role = shib_server.get_role(role_id)
+
+            staff_members += curr_role.members
         
+        for i in staff_members:
+            img = await i.avatar_url_as(static_format="jpg",size=32).read()
+            stream = io.BytesIO(img)
+
+
+            img = Image.open(stream).convert('RGB') 
+            
+            open_cv_image = np.array(img) 
+            open_cv_image = open_cv_image[:, :, ::-1].copy() 
+            gray = cv.cvtColor(open_cv_image,cv.COLOR_BGR2GRAY)
+            
+            staff_pics[i.id] = gray  
+
+
+
+        staff_names = []
+
+        for i in staff_members:
+            if i.nick == None:
+                staff_names.append(i.name)
+            else:
+                staff_names.append(i.nick)
+            
+        effective_name = unidecode.unidecode(member.name)
+
+        for i,staff in enumerate(staff_members):
+                    
+            if staff.id != member.id:
+                staff_start = staff_names[i].split()[0]
+                
+                if(staff_start.upper()[:3] in effective_name.upper()):
+                    
+                    distance = textdistance.levenshtein(staff_names[i].upper(),effective_name.upper())
+                    if(distance < 5):
+                        member_pic = await member.avatar_url_as(static_format="jpg",size=32).read()
+
+                        stream = io.BytesIO(member_pic)
+
+
+                        img = Image.open(stream).convert('RGB') 
+                        #img.show(command='fim')
+                        
+                        open_cv_image = np.array(img) 
+                        open_cv_image = open_cv_image[:, :, ::-1].copy() 
+                        gray = cv.cvtColor(open_cv_image,cv.COLOR_BGR2GRAY)
+                        dim = (32, 32)
+                        gray = cv.resize(gray,dim,interpolation = cv.INTER_AREA)
+
+                        s = ssim(gray,staff_pics[staff.id])
+                        #print(("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s)))
+                        if(s > .25 or distance < 3):
+                            await member.send("You have been kicked due to your name being too similar to a staff memebers")
+                            #await ctx.channel.send("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s))
+                            break
+
 
     @commands.Cog.listener()
     async def on_message(self, ctx):
