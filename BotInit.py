@@ -15,11 +15,11 @@ class ShibInformer(BotAuth):
     def __init__(self):
         super().__init__()
         self.bot = commands.Bot(command_prefix='$',intents=discord.Intents().all())
-        
         print("Starte shib informer")
 
         self.bot.add_cog(ChatHelper.ChatCommands(self.bot))
         self.bot.get_cog("ChatCommands").notify_twitch_live.start()
+        self.bot.get_cog("ChatCommands").imposter.start()
 
         
         self.key = self.info.server_info["shib_informer"]

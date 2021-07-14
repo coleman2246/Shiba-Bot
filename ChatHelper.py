@@ -39,7 +39,9 @@ class ChatCommands(commands.Cog):
             self.counter_locks[channel] = asyncio.Lock()
 
         self.board_lock = asyncio.Lock()
+        self.white_list_lock = asyncio.Lock()
         
+
         client = self.info.server_info["twitch_client"]
         sec = self.info.server_info["twitch_secret"]
         
@@ -66,6 +68,7 @@ class ChatCommands(commands.Cog):
             self.notify_times[i]["time-last-online"] = np.inf
             self.notify_times[i]["already-notified"] = False
             #self.notify_times_lock[i] =  asyncio.Lock()
+
 
 
     @tasks.loop(seconds=60,reconnect=True)
@@ -99,6 +102,40 @@ class ChatCommands(commands.Cog):
             return r.json()["data"][0]["is_live"]
         else:
             raise ValueError("Bearer token was not authenicated by twitch")
+
+    @commands.command()
+    async def whitelist(self,ctx,member):
+        await self.bot.wait_until_ready()
+
+        if(not self.is_staff_member(ctx.author)):
+            await ctx.channel.send("Only staff members can use this command.")
+            return 
+    
+        try:
+            member_string = member
+            user_obj = await ctx.guild.fetch_member(int(member_string))
+
+            await self.white_list_lock.acquire()
+        
+            with open('Data Files/whitelist.json', 'r') as f:
+                white_list = json.load(f)
+        
+            white_list["whitelist"].append(int(user_obj.id))
+            
+            with open('Data Files/whitelist.json', 'w') as f:
+                json.dump(white_list,f,indent=4)
+
+            
+            self.white_list_lock.release()
+            await ctx.channel.send("{} Added to the whiltelist".format(user_obj.mention))
+
+        except:
+            await ctx.channel.send("Invalid User Passed. Example usage is $whitelist userid")
+            print("Invalid User passed.")
+            return 
+
+
+
 
     @commands.command()
     async def chartex(self,ctx):
@@ -344,7 +381,6 @@ class ChatCommands(commands.Cog):
         except:
             await ctx.channel.send("Please Enter Valid Channel")
             self.board_lock.release()
- 
             return
 
  
@@ -358,15 +394,19 @@ class ChatCommands(commands.Cog):
         self.board_lock.release()
  
     
-    '''
-    @commands.command()
-    async def imposter(self,ctx):
-        members = ctx.guild.members
-        
+    @tasks.loop(seconds=60*5,reconnect=True)
+    async def imposter(self):
+        await self.bot.wait_until_ready()
+
+        notify_channel = await self.bot.fetch_channel(844468484036493352)
+
+        guild = self.bot.get_guild(740287152843128944)
+        members = await guild.chunk()
+        print(len(members),guild.member_count,guild.name)        
         staff_members = []
 
         for role_id in self.info.server_info["staff_roles"]:
-            curr_role = ctx.guild.get_role(role_id)
+            curr_role = guild.get_role(role_id)
 
             staff_members += curr_role.members
 
@@ -377,6 +417,7 @@ class ChatCommands(commands.Cog):
 
 
 
+ 
         for i in staff_members:
             if i.nick == None:
                 staff_names.append(i.name)
@@ -400,61 +441,53 @@ class ChatCommands(commands.Cog):
         print("Started loop")
         similar_names = []
 
-        forbiden_stats = ["admin","mod","support"]
+        banned_words = ["admin","mod","support","help"]
+
+        await self.white_list_lock.acquire()
+    
+        with open('Data Files/whitelist.json', 'r') as f:
+            white_list = json.load(f)["whitelist"]
+        self.white_list_lock.release()
+
         for memeber_depth,member in enumerate(members):
             effective_name = unidecode.unidecode(member.name)
 
+            if member.id not in white_list:                        
+                status = member.activity
+                if(status != None and isinstance(status,discord.CustomActivity) and status.name != None ):
+                    for word in banned_words:
+                        if word.upper() in status.name.upper():
+                            await notify_channel.send("Forbidden Status Words: {} Member: {} Status: {}".format(word,member.mention,status.name))      
 
-            #print(memeber_depth)
-            for i,staff in enumerate(staff_members):
-                       
-                if staff.id != member.id:
-                    staff_start = staff_names[i].split()[0]
-                    
-                    if(staff_start.upper()[:3] in effective_name.upper()):
+                for i,staff in enumerate(staff_members):
                         
-                        distance = textdistance.levenshtein(staff_names[i].upper(),effective_name.upper())
-                        if(distance < 5):
-                            member_pic = await member.avatar_url_as(static_format="jpg",size=32).read()
-
-                            stream = io.BytesIO(member_pic)
-
-
-                            img = Image.open(stream).convert('RGB') 
-                            #img.show(command='fim')
+                    if staff.id != member.id:
+                        staff_start = staff_names[i].split()[0]
+                        
+                        if(staff_start.upper()[:3] in effective_name.upper()):
                             
-                            open_cv_image = np.array(img) 
-                            open_cv_image = open_cv_image[:, :, ::-1].copy() 
-                            gray = cv.cvtColor(open_cv_image,cv.COLOR_BGR2GRAY)
-                            dim = (32, 32)
-                            gray = cv.resize(gray,dim,interpolation = cv.INTER_AREA)
+                            distance = textdistance.levenshtein(staff_names[i].upper(),effective_name.upper())
+                            if(distance < 8):
+                                member_pic = await member.avatar_url_as(static_format="jpg",size=32).read()
 
-                            s = ssim(gray,staff_pics[staff.id])
-                            #print(("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s)))
-                            if(s > .25):
-                                await ctx.channel.send("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s))
-                                break
-            #status = member.activity
-            #isinstance(status,discord.CustomActivity)
-          
-                        
+                                stream = io.BytesIO(member_pic)
 
+
+                                img = Image.open(stream).convert('RGB') 
+                                #img.show(command='fim')
+                                
+                                open_cv_image = np.array(img) 
+                                open_cv_image = open_cv_image[:, :, ::-1].copy() 
+                                gray = cv.cvtColor(open_cv_image,cv.COLOR_BGR2GRAY)
+                                dim = (32, 32)
+                                gray = cv.resize(gray,dim,interpolation = cv.INTER_AREA)
+
+                                s = ssim(gray,staff_pics[staff.id])
+                                #print(("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s)))
+                                if(s > .25 or (distance < 3 and s > .15)  ):
+                                    await notify_channel.send("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s))
+              
         print("Done Loop")
-        
-        print("Done loop")
-        memeber_pics = {}
-        
-        for curr_match in similar_names:
-            staff_pic = io.imread(curr_match[0].avatar_url_as(static_format="jpg",size=128))
-            staff_pic = cv2.imdecode(np.frombuffer(staff_pic,np.uint8),-1)
-                        plt.imshow(staff_pic)
-            plt.imshow(staff_pic)
-            plt.show()
-            break
-            #print(memeber_depth)
-      
-        print(similar_names)
-        '''
     
     @commands.command()
     async def assign(self,ctx,channel,author=None):

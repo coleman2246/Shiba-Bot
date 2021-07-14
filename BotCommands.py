@@ -44,7 +44,7 @@ class UpdateShibPrice(CustomBot):
     async def do_task(self):
         try:
             price = self.coin.get_shib_price()
-            print(str.format('{0:.10f}',price))
+            #print(str.format('{0:.10f}',price))
             await self.update_username(str.format('{0:.10f}',price))
         except:
             print("Unable to Fetch Username Shib Price")
@@ -164,7 +164,7 @@ class UpdateTotalValueLocked(CustomBot):
     @tasks.loop(seconds=60,reconnect=True)
     async def do_task(self):
         await self.bot.wait_until_ready()
-        print(self.coin.get_swap_tvl())
+        #print(self.coin.get_swap_tvl())
         try:
             await self.update_username(f"{int(self.coin.get_swap_tvl()):,}")
         except:
