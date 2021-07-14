@@ -126,13 +126,13 @@ class ChatCommands(commands.Cog):
                 json.dump(white_list,f,indent=4)
 
             
-            self.white_list_lock.release()
             await ctx.channel.send("{} Added to the whiltelist".format(user_obj.mention))
 
         except:
             await ctx.channel.send("Invalid User Passed. Example usage is $whitelist userid")
             print("Invalid User passed.")
             return 
+        self.white_list_lock.release()
 
 
 
@@ -394,7 +394,7 @@ class ChatCommands(commands.Cog):
         self.board_lock.release()
  
     
-    @tasks.loop(seconds=60*5,reconnect=True)
+    @tasks.loop(seconds=60*10,reconnect=True)
     async def imposter(self):
         await self.bot.wait_until_ready()
 
@@ -441,7 +441,7 @@ class ChatCommands(commands.Cog):
         print("Started loop")
         similar_names = []
 
-        banned_words = ["admin","mod","support","help"]
+        banned_words = ["admin","mod","support"]
 
         await self.white_list_lock.acquire()
     
