@@ -457,7 +457,7 @@ class ChatCommands(commands.Cog):
                 if(status != None and isinstance(status,discord.CustomActivity) and status.name != None ):
                     for word in banned_words:
                         if word.upper() in status.name.upper():
-                            await notify_channel.send("Forbidden Status Words: {} Member: {} Status: {}".format(word,member.mention,status.name))      
+                            await notify_channel.send("<@&805576038486769705> Forbidden Status Words: {} Member: {} Status: {}".format(word,member.mention,status.name))      
 
                 for i,staff in enumerate(staff_members):
                         
@@ -485,7 +485,7 @@ class ChatCommands(commands.Cog):
                                 s = ssim(gray,staff_pics[staff.id])
                                 #print(("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s)))
                                 if(s > .25 or (distance < 3 and s > .15)  ):
-                                    await notify_channel.send("Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s))
+                                    await notify_channel.send("<@&805576038486769705> Staff: {} Member: {} Name Distance: {} Picture Similairty: {}".format(staff_names[i],member.mention,distance,s))
               
         print("Done Loop")
     
@@ -604,12 +604,20 @@ class ChatCommands(commands.Cog):
 
             if( count >=  self.info.server_info["scam_channels_counts"][str(ctx.channel.id)] ):    
                 #print(self.info.server_info["scam_channels_counts"][str(ctx.channel.id)])    
-                
-                name = "Scam Warning"
-                
-                admin_message = "Click on the mentions in the message to get in contact with admin.\n <@"
-                actualDict = {"Warning" : self.info.server_info["scam_message"]}
+                if "french".upper() in ctx.channel.name.upper():
+                    name = "ATTENTION"
+                    message_dict = self.info.server_info["french_scam_message"]
+                    title = "PREVENTION ANTI-SCAM"
+                else:
+                    name = "Scam Warning"
+                    admin_message = "Click on the mentions in the message to get in contact with admin.\n <@"
+                    message_dict = self.info.server_info["scam_message"]
+                    title = "Warning"
+                actualDict = {title : message_dict}
+
+
                 message = makeEmbed(name=name, values=actualDict)
+                
                 print(ctx.channel.name)
                 
                 await ctx.channel.send("",embed=message)
