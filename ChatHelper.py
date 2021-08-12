@@ -31,6 +31,11 @@ class ChatCommands(commands.Cog):
         self.bot = bot
         self.info = Info.ServerInformation("Data Files/server_info.json")
         
+        with open("Data Files/wen.json") as f:
+            self.wen = json.load(f)
+
+        self.wen_lock = asyncio.Lock()
+
         self.counter = {}
         self.counter_locks = {}
         
@@ -69,7 +74,7 @@ class ChatCommands(commands.Cog):
             self.notify_times[i]["already-notified"] = False
             #self.notify_times_lock[i] =  asyncio.Lock()
 
-
+    
 
     @tasks.loop(seconds=60,reconnect=True)
     async def notify_twitch_live(self):
@@ -102,6 +107,20 @@ class ChatCommands(commands.Cog):
             return r.json()["data"][0]["is_live"]
         else:
             raise ValueError("Bearer token was not authenicated by twitch")
+
+        
+    @commands.command()
+    async def wen(self,ctx):
+        await self.bot.wait_until_ready()
+
+        await self.wen_lock.acquire()
+        self.wen["wen"] += 1
+
+        with open('Data Files/wen.json', 'w') as f:
+                json.dump(self.wen,f,indent=4)
+        
+        await ctx.channel.send("Wen Count Is : {}".format(self.wen["wen"]))
+        self.wen_lock.release()
 
     @commands.command()
     async def whitelist(self,ctx,member):
@@ -638,6 +657,14 @@ class ChatCommands(commands.Cog):
 
         return False
 
+    @commands.Cog.listener()
+    async def on_reaction_add(self,reaction, user):
+        await self.bot.wait_until_ready()
+    
+        if reaction.emoji == "🤡" or reaction.emoji == "🖕":
+
+            notify_channel = await self.bot.fetch_channel(844468484036493352)
+            await notify_channel.send("<@&805576038486769705>" +"Forbiden Reaction: "+str(reaction.emoji)+" "+str(user.mention)+" "+str(user.id))
 
 def makeEmbed(*, name=None, icon=None, colour=0xEB4034, values={}):
     '''Creates an embed messasge with specified inputs'''
