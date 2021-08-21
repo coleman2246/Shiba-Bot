@@ -3,7 +3,6 @@ import discord.utils
 import discord
 import Info
 import re
-import Warnings
 import pandas as pd
 from discord.utils import get
 import requests
@@ -25,6 +24,9 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 import io
+from DataBase import DataBaseManagement
+
+
 
 class ChatCommands(commands.Cog):
     def __init__(self,bot):
@@ -661,10 +663,40 @@ class ChatCommands(commands.Cog):
     async def on_reaction_add(self,reaction, user):
         await self.bot.wait_until_ready()
     
-        if reaction.emoji == "🤡" or reaction.emoji == "🖕":
-
+        if reaction.emoji == "🤡" :
+            DataBaseManagement().update_clown_count(int(user.id))
             notify_channel = await self.bot.fetch_channel(844468484036493352)
-            await notify_channel.send("<@&805576038486769705>" +"Forbiden Reaction: "+str(reaction.emoji)+" "+str(user.mention)+" "+str(user.id))
+            message_obj = reaction.message
+            url = "https://discord.com/channels/{}/{}/{}".format(740287152843128944,message_obj.channel.id,message_obj.id)
+            await notify_channel.send("<@&805576038486769705>" +"Forbiden Reaction: "+str(reaction.emoji)+" "+str(user.mention)+" "+str(user.id) + " " + url) 
+        elif reaction.emoji == "🖕":
+            
+            DataBaseManagement().update_middlefinger_count(int(user.id))
+            notify_channel = await self.bot.fetch_channel(844468484036493352)
+            message_obj = reaction.message
+            url = "https://discord.com/channels/{}/{}/{}".format(740287152843128944,message_obj.channel.id,message_obj.id)
+
+            await notify_channel.send("<@&805576038486769705>" +"Forbiden Reaction: "+str(reaction.emoji)+" "+str(user.mention)+" "+str(user.id) + " " + url) 
+
+
+    @commands.command()
+    async def reaction_count(self,ctx,user_id):
+        await self.bot.wait_until_ready()
+
+        if(not self.is_staff_member(ctx.author)):
+            await ctx.channel.send("Only staff members can use this command.")
+            return 
+        else:
+            df = DataBaseManagement().query_user_reactions(user_id)
+            if df.empty:
+                await ctx.channel.send("{} Has Not used any forbidden reactions.".format(user_id))
+
+            else:
+        
+                message = "{} -  🤡: {} and 🖕: {}".format(user_id,df.iloc[0]["clown_count"],df.iloc[0]["middlefinger_count"]) 
+
+                await ctx.channel.send(message)
+
 
 def makeEmbed(*, name=None, icon=None, colour=0xEB4034, values={}):
     '''Creates an embed messasge with specified inputs'''

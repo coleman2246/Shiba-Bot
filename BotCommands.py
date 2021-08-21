@@ -2,7 +2,6 @@ from discord.ext import commands, tasks
 import discord.utils
 import discord
 import locale
-import Warnings
 import Info
 import requests
 import CoinInfo

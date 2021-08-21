@@ -18,8 +18,8 @@ class ShibInformer(BotAuth):
         print("Starte shib informer")
 
         self.bot.add_cog(ChatHelper.ChatCommands(self.bot))
-        self.bot.get_cog("ChatCommands").notify_twitch_live.start()
-        self.bot.get_cog("ChatCommands").imposter.start()
+        #self.bot.get_cog("ChatCommands").notify_twitch_live.start()
+        #self.bot.get_cog("ChatCommands").imposter.start()
 
         
         self.key = self.info.server_info["shib_informer"]
