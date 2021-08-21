@@ -18,7 +18,7 @@ class DataBaseManagement:
 
 
     def update_clown_count(self,user_id):
-        sql = "INSERT INTO forbidden_reactions VALUES(?,1,1) ON CONFLICT DO UPDATE SET  clown_count = clown_count +1;"
+        sql = "INSERT INTO forbidden_reactions VALUES(?,1,1) ON CONFLICT(user_id) DO UPDATE SET  clown_count = clown_count +1;"
         
         cur = self.con.cursor()
         
@@ -27,7 +27,7 @@ class DataBaseManagement:
         
 
     def update_middlefinger_count(self,user_id):
-        sql = "INSERT INTO forbidden_reactions VALUES(?,1,1) ON CONFLICT DO UPDATE SET  middlefinger_count = middlefinger_count +1;"
+        sql = "INSERT INTO forbidden_reactions VALUES(?,1,1) ON CONFLICT(user_id) DO UPDATE SET  middlefinger_count = middlefinger_count +1;"
         
         cur = self.con.cursor()
         cur.execute(sql,(user_id,))
